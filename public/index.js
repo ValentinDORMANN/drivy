@@ -212,6 +212,21 @@ var Driver = function(firstName, lastName){
   this.firstName = firstName;
   this.LastName = lastName;
 }
+/* ======================= COMMISSION ============================ */
+var Commission = function(){
+  this.insurance = 0;
+  this.assistance = 0;
+  this.drivy = 0;
+};
+Commission.RATE = 0.3;
+Commission.INSURANCE_RATE = 0.5;
+Commission.ROADSIDE_COST_PER_DAY = 1;
+Commission.prototype.calculateCommision = function(price, day){
+  var commisionPrice = price*Commission.RATE;
+  this.insurance = commisionPrice*Commission.INSURANCE_RATE;
+  this.assistance = day*Commission.ROADSIDE_COST_PER_DAY;
+  this.drivy = commisionPrice - this.insurance - this.assistance;
+}
 /* ======================= RENTAL =============================== */
 var Rental = function(id, driver, carId, pickupDate, returnDate, distance, options, commission){
   this.id = id;
@@ -236,21 +251,30 @@ Rental.prototype.calculateReservedTime = function(){
   var elapseTime = endDateInMs - beginDateInMs;
   return Math.ceil(elapseTime/CONVERSION_TIME_RATE_MS_TO_DAY)+1;
 };
+Rental.prototype.calculateCommision = function(){
+  this.commission.calculateCommision(this.price, this.calculateReservedTime());
+}
 
 var RentalRepository = function(){
   this.rentals = this.loadDataInJSON(rentalsJSON);
   this.calculateRentalPrice();
+  this.calculateCommision();
 };
 RentalRepository.prototype.loadDataInJSON = function(data){
   var rentals = [];
   for(var i = 0; i < data.length; i++){
-    rentals.push(new Rental(data[i].id, new Driver(data[i].firstName, data[i].lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].option, data[i].commission));
+    rentals.push(new Rental(data[i].id, new Driver(data[i].firstName, data[i].lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].option, new Commission()));
   }
   return rentals;
 };
 RentalRepository.prototype.calculateRentalPrice = function(){
   for(var i = 0; i < this.rentals.length; i++){
     this.rentals[i].calculateRentalPrice();
+  }
+};
+RentalRepository.prototype.calculateCommision = function(){
+  for(var i = 0; i < this.rentals.length; i++){
+    this.rentals[i].calculateCommision();
   }
 };
 
