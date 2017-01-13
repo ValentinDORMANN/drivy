@@ -172,14 +172,21 @@ var Car = function(id, vehicule, pricePerDay, pricePerKm){
   this.pricePerDay = pricePerDay;
   this.pricePerKm = pricePerKm;
 }
-Car.prototype.calculateRentalPrice = function(day,km){
-  return this.calculateTimeCost(day)+this.calculateDistanceCost(km);
+Car.prototype.calculateRentalPrice = function(day,distanceInKm){
+  return (this.calculateTimeCost(day)+this.calculateDistanceCost(distanceInKm))*this.calculatePromotionRate(day);
 };
 Car.prototype.calculateTimeCost = function(day){
   return this.pricePerDay*day;
 };
-Car.prototype.calculateDistanceCost = function(km){
-  return this.pricePerKm*km;
+Car.prototype.calculatePromotionRate = function(day){
+  var promotionRate = 1;
+  if(day >= 10){ promotionRate = 0.5; }
+  else if(day >= 4){ promotionRate = 0.7; }
+  else if(day >= 1){ promotionRate = 0.9; }
+  return promotionRate;
+};
+Car.prototype.calculateDistanceCost = function(distanceInKm){
+  return this.pricePerKm*distanceInKm;
 };
 
 var CarRepository = function(){
@@ -217,18 +224,17 @@ var Rental = function(id, driver, carId, pickupDate, returnDate, distance, optio
   this.price = 0;
   this.commission = commission;
 };
-Rental.prototype.calculateReservedTime = function(){
-  const conversionRateMsToDay = 60*60*1000;
-  var beginDateInMs = this.pickupDate.getTime();
-  var endDateInMs = this.returnDate.getTime();
-  var elapseTime = beginDateInMs - endDateInMs;
-  return Math.ceil(elapseTime%conversionRateMsToDay)+1;
-};
 Rental.prototype.calculateRentalPrice = function(){
   var carRepository = new CarRepository();
   // TODO check exception for finfCarBiId
   this.price = carRepository.findCarById(this.carId).calculateRentalPrice(this.calculateReservedTime(), this.distance);
-  console.log(this.price);
+};
+Rental.prototype.calculateReservedTime = function(){
+  const CONVERSION_TIME_RATE_MS_TO_DAY = 24*60*60*1000;
+  var beginDateInMs = this.pickupDate.getTime();
+  var endDateInMs = this.returnDate.getTime();
+  var elapseTime = endDateInMs - beginDateInMs;
+  return Math.ceil(elapseTime/CONVERSION_TIME_RATE_MS_TO_DAY)+1;
 };
 
 var RentalRepository = function(){
@@ -251,5 +257,4 @@ RentalRepository.prototype.calculateRentalPrice = function(){
 // MAIN
 var carRepository = new CarRepository();
 var rentalRepository = new RentalRepository();
-console.log(carRepository);
 console.log(rentalRepository);
