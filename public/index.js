@@ -206,7 +206,7 @@ CarRepository.prototype.findCarById = function(id){
       return this.cars[i];
     }
   }
-  console.log("Unalble to find this car ("+id+")");
+  console.log("Unable to find this car ("+id+")");
 }
 /* ======================= DRIVER =============================== */
 var Driver = function(firstName, lastName){
@@ -240,10 +240,14 @@ var Rental = function(id, driver, carId, pickupDate, returnDate, distance, optio
   this.price = 0;
   this.commission = commission;
 };
+Rental.DEDUCTIBLE_REDUCTION_PER_DAY = 4;
+Rental.DEDUCTIBLE_REDUCTION_WITHOUT = 800;
+Rental.DEDUCTIBLE_REDUCTION_WITH = 150;
 Rental.prototype.calculateRentalPrice = function(){
   var carRepository = new CarRepository();
-  // TODO check exception for finfCarBiId
+  // TODO check exception for findCarById
   this.price = carRepository.findCarById(this.carId).calculateRentalPrice(this.calculateReservedTime(), this.distance);
+  this.price += this.checkDeductibleReductionOption();
 };
 Rental.prototype.calculateReservedTime = function(){
   const CONVERSION_TIME_RATE_MS_TO_DAY = 24*60*60*1000;
@@ -254,7 +258,11 @@ Rental.prototype.calculateReservedTime = function(){
 };
 Rental.prototype.calculateCommision = function(){
   this.commission.calculateCommision(this.price, this.calculateReservedTime());
-}
+};
+Rental.prototype.checkDeductibleReductionOption = function(){
+  var day = this.calculateReservedTime();
+  return (this.options.deductibleReduction) ? Rental.DEDUCTIBLE_REDUCTION_WITH+day*Rental.DEDUCTIBLE_REDUCTION_PER_DAY : Rental.DEDUCTIBLE_REDUCTION_WITHOUT;
+};
 
 var RentalRepository = function(){
   this.rentals = this.loadDataInJSON(rentalsJSON);
