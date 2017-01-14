@@ -247,6 +247,9 @@ Rental.DEDUCTIBLE_REDUCTION_PER_DAY = 4;
 Rental.DEDUCTIBLE_REDUCTION_WITHOUT = 800;
 Rental.DEDUCTIBLE_REDUCTION_WITH = 150;
 Rental.prototype.getId = function(){ return this.id; };
+Rental.prototype.getPickupDate = function(){ return this.pickupDate; };
+Rental.prototype.getReturnDate = function(){ return this.returnDate; };
+Rental.prototype.getDistance = function(){ return this.distance; };
 Rental.prototype.getPrice = function(){ return this.price; };
 Rental.prototype.getCommision = function(){ return this.commission; };
 Rental.prototype.calculateRentalPrice = function(){
@@ -267,6 +270,13 @@ Rental.prototype.calculateCommision = function(){
 Rental.prototype.checkDeductibleReductionOption = function(){
   var day = this.calculateReservedTime();
   return (this.options.deductibleReduction) ? Rental.DEDUCTIBLE_REDUCTION_WITH+day*Rental.DEDUCTIBLE_REDUCTION_PER_DAY : Rental.DEDUCTIBLE_REDUCTION_WITHOUT;
+};
+Rental.prototype.modifyRental = function(pickupDate, returnDate, distance){
+  this.pickupDate = pickupDate;
+  this.returnDate = returnDate;
+  this.distance = distance;
+  this.calculateRentalPrice();
+  this.calculateCommision();
 };
 
 var RentalRepository = function(){
@@ -298,14 +308,31 @@ RentalRepository.prototype.findRentalById = function(id){
   }
   console.log("Unable to find this rental ("+id+")");
 };
+RentalRepository.prototype.findRentalIndexById = function(id){
+  for(var i = 0; i < this.rentals.length; i++){
+    if(this.rentals[i].getId() == id){
+      return i;
+    }
+  }
+  console.log("Unable to find this rental ("+id+")");
+};
+RentalRepository.prototype.modifyRental = function(id, pickupDate, returnDate, distance){
+  // TODO check exception for findRentalIndexById
+  var index = this.findRentalIndexById(id);
+  // NOTE we consider pickupDate <= returnDate
+  pickupDate = (typeof pickupDate === 'undefined' || pickupDate === null) ? this.rentals[index].getPickupDate() : new Date(pickupDate);
+  returnDate = (typeof returnDate === 'undefined' || returnDate === null) ? this.rentals[index].getReturnDate() : new Date(returnDate);
+  distance = (typeof distance === 'undefined' || distance === null || distance <= 0) ? this.rentals[index].getDistance() : distance;
+  this.rentals[index].modifyRental(pickupDate, returnDate, distance);
+};
 
 /* ======================= ACTOR ================================ */
 var Actor = function(rentalId, payments){
   this.rentalId = rentalId;
   this.payments = payments;
 };
-Actor.prototype.pay = function(){
-  var rentalRepository = new RentalRepository();
+Actor.prototype.getRentalId = function(){ return this.rentalId; };
+Actor.prototype.pay = function(rentalRepository){
   // TODO check exception for findRentalById
   var rental = rentalRepository.findRentalById(this.rentalId);
   var commission = rental.getCommision();
@@ -320,8 +347,39 @@ Actor.prototype.pay = function(){
     }
   }
 };
+Actor.prototype.modify = function(rentalRepository){
+  var rental = rentalRepository.findRentalById(this.rentalId);
+  var commission = rental.getCommision();
+  for(var i = 0; i < this.payments.length; i++){
+    var amount = 0;
+    switch(this.payments[i].getWho()){
+      case "driver": 
+        amount = rental.getPrice()+rental.checkDeductibleReductionOption();
+        console.log(amount);
+        this.payments[i].deltaAmount = amount - this.payments[i].amount;
+        break;
+      case "owner":
+        amount = rental.getPrice()-commission.getTotalCommision();
+        this.payments[i].deltaAmount = amount - this.payments[i].amount;
+        break;
+      case "insurance": 
+        amount = commission.getInsurance();
+        this.payments[i].deltaAmount = amount - this.payments[i].amount;
+        break;
+      case "assistance":
+        amount = commission.getAssistance();
+        this.payments[i].deltaAmount = amount - this.payments[i].amount;
+        break;
+      case "drivy":
+        amount = commission.getDrivy()+rental.checkDeductibleReductionOption();
+        this.payments[i].deltaAmount = amount - this.payments[i].amount;
+        break;
+    }
+  }
+};
 
 var ActorRepository = function(){
+  this.rentalRepository = new RentalRepository();
   this.actors = [];
   this.loadDataInJSON(actorsJSON);
   this.pay();
@@ -337,23 +395,43 @@ ActorRepository.prototype.loadDataInJSON = function(data){
 };
 ActorRepository.prototype.pay = function(){
   for(var i = 0; i < this.actors.length; i++){
-    this.actors[i].pay();
+    this.actors[i].pay(this.rentalRepository);
   }  
 };
+ActorRepository.prototype.findActorIndexByRentalId = function(id){
+  for(var i = 0; i < this.actors.length; i++){
+    if(this.actors[i].getRentalId() == id){
+      return i;
+    }
+  }
+  console.log("Unable to find this rental ("+id+"");
+};
+ActorRepository.prototype.modifyActor = function(id){
+  // TODO check exception for findActorIndexByRentalId
+  var index = this.findActorIndexByRentalId(id);
+  this.actors[index].modify(this.rentalRepository);
+};
+ActorRepository.prototype.doRentalModification = function(data){
+  for(var i = 0; i < data.length; i++){
+    this.rentalRepository.modifyRental(data[i].rentalId, data[i].pickupDate, data[i].returnDate, data[i].distance);
+    this.modifyActor(data[i].rentalId);
+  }
+};
+
 /* ======================= PAYMENT ============================== */
 var Payment = function(who, type){
   this.who = who;
   this.type = type;
   this.amount = 0;
-}
+  this.deltaAmount = 0;
+};
 Payment.prototype.getWho = function(){ return this.who; };
 Payment.prototype.pay = function(amount){
   this.amount += amount;
-}
+};
 
 // MAIN
-var carRepository = new CarRepository();
-var rentalRepository = new RentalRepository();
 var actorRepository = new ActorRepository();
-console.log(rentalRepository);
+
+actorRepository.doRentalModification(rentalModifications);
 console.log(actorRepository);
