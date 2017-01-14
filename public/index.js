@@ -173,12 +173,13 @@ var Car = function(id, vehicule, pricePerDay, pricePerKm){
   this.pricePerKm = pricePerKm;
 }
 Car.prototype.calculateRentalPrice = function(day,distanceInKm){
-  return (this.calculateTimeCost(day)+this.calculateDistanceCost(distanceInKm))*this.calculatePromotionRate(day);
+  var price = this.calculateTimeCost(day)+this.calculateDistanceCost(distanceInKm);
+  return price;
 };
 Car.prototype.calculateTimeCost = function(day){
-  return this.pricePerDay*day;
+  return this.pricePerDay*this.calculatePromotionDailyPriceRate(day)*day;
 };
-Car.prototype.calculatePromotionRate = function(day){
+Car.prototype.calculatePromotionDailyPriceRate = function(day){
   var promotionRate = 1;
   if(day >= 10){ promotionRate = 0.5; }
   else if(day >= 4){ promotionRate = 0.7; }
@@ -263,7 +264,7 @@ var RentalRepository = function(){
 RentalRepository.prototype.loadDataInJSON = function(data){
   var rentals = [];
   for(var i = 0; i < data.length; i++){
-    rentals.push(new Rental(data[i].id, new Driver(data[i].firstName, data[i].lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].option, new Commission()));
+    rentals.push(new Rental(data[i].id, new Driver(data[i].driver.firstName, data[i].driver.lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].options, new Commission()));
   }
   return rentals;
 };
