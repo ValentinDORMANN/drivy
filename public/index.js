@@ -210,6 +210,7 @@ var Driver = function(firstName, lastName){
   this.firstName = firstName;
   this.LastName = lastName;
 }
+
 /* ======================= COMMISSION ============================ */
 var Commission = function(){
   this.insurance = 0;
@@ -251,7 +252,7 @@ Rental.prototype.getPickupDate = function(){ return this.pickupDate; };
 Rental.prototype.getReturnDate = function(){ return this.returnDate; };
 Rental.prototype.getDistance = function(){ return this.distance; };
 Rental.prototype.getPrice = function(){ return this.price; };
-Rental.prototype.getCommision = function(){ return this.commission; };
+Rental.prototype.getCommission = function(){ return this.commission; };
 Rental.prototype.calculateRentalPrice = function(){
   var carRepository = new CarRepository();
   // TODO check exception for findCarById
@@ -331,51 +332,55 @@ var Actor = function(rentalId, payments){
   this.rentalId = rentalId;
   this.payments = payments;
 };
+Actor.DRIVER = "driver";
+Actor.OWNER = "owner";
+Actor.INSURANCE = "insurance";
+Actor.ASSISTANCE = "assistance";
+Actor.DRIVY = "drivy";
 Actor.prototype.getRentalId = function(){ return this.rentalId; };
 Actor.prototype.pay = function(rentalRepository){
   // TODO check exception for findRentalById
   var rental = rentalRepository.findRentalById(this.rentalId);
-  var commission = rental.getCommision();
+  var commission = rental.getCommission();
   // NOTE TDA
   for(var i = 0; i < this.payments.length; i++){
     switch(this.payments[i].getWho()){
-      case "driver":     this.payments[i].pay(rental.getPrice()+rental.checkDeductibleReductionOption());     break;
-      case "owner":      this.payments[i].pay(rental.getPrice()-commission.getTotalCommision());              break;
-      case "insurance":  this.payments[i].pay(commission.getInsurance());                                     break;
-      case "assistance": this.payments[i].pay(commission.getAssistance());                                    break;
-      case "drivy":      this.payments[i].pay(commission.getDrivy()+rental.checkDeductibleReductionOption()); break;
+      case Actor.DRIVER:     this.payments[i].pay(this.driverPayment(rental));     break;
+      case Actor.OWNER:      this.payments[i].pay(this.ownerPayment(rental));      break;
+      case Actor.INSURANCE:  this.payments[i].pay(this.insurancePayment(rental));  break;
+      case Actor.ASSISTANCE: this.payments[i].pay(this.assistancePayment(rental)); break;
+      case Actor.DRIVY:      this.payments[i].pay(this.drivyPayment(rental));      break;
     }
   }
 };
 Actor.prototype.modify = function(rentalRepository){
   var rental = rentalRepository.findRentalById(this.rentalId);
-  var commission = rental.getCommision();
   for(var i = 0; i < this.payments.length; i++){
     var amount = 0;
     switch(this.payments[i].getWho()){
-      case "driver": 
-        amount = rental.getPrice()+rental.checkDeductibleReductionOption();
-        console.log(amount);
-        this.payments[i].deltaAmount = amount - this.payments[i].amount;
-        break;
-      case "owner":
-        amount = rental.getPrice()-commission.getTotalCommision();
-        this.payments[i].deltaAmount = amount - this.payments[i].amount;
-        break;
-      case "insurance": 
-        amount = commission.getInsurance();
-        this.payments[i].deltaAmount = amount - this.payments[i].amount;
-        break;
-      case "assistance":
-        amount = commission.getAssistance();
-        this.payments[i].deltaAmount = amount - this.payments[i].amount;
-        break;
-      case "drivy":
-        amount = commission.getDrivy()+rental.checkDeductibleReductionOption();
-        this.payments[i].deltaAmount = amount - this.payments[i].amount;
-        break;
+      case Actor.DRIVER:     amount = this.driverPayment(rental);     break;
+      case Actor.OWNER:      amount = this.ownerPayment(rental);      break;
+      case Actor.INSURANCE:  amount = this.insurancePayment(rental);  break;
+      case Actor.ASSISTANCE: amount = this.assistancePayment(rental); break;
+      case Actor.DRIVY:      amount = this.drivyPayment(rental);      break;
     }
+    this.payments[i].deltaAmount = amount - this.payments[i].amount;
   }
+};
+Actor.prototype.driverPayment = function(rental){
+  return rental.getPrice()+rental.checkDeductibleReductionOption();
+};
+Actor.prototype.ownerPayment = function(rental){
+  return rental.getPrice()-rental.getCommission().getTotalCommision();
+};
+Actor.prototype.insurancePayment = function(rental){
+  return rental.getCommission().getInsurance();
+};
+Actor.prototype.assistancePayment = function(rental){
+  return rental.getCommission().getAssistance();
+};
+Actor.prototype.drivyPayment = function(rental){
+  return rental.getCommission().getDrivy()+rental.checkDeductibleReductionOption();
 };
 
 var ActorRepository = function(){
@@ -432,6 +437,5 @@ Payment.prototype.pay = function(amount){
 
 // MAIN
 var actorRepository = new ActorRepository();
-
 actorRepository.doRentalModification(rentalModifications);
 console.log(actorRepository);
