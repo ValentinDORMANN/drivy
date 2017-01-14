@@ -1,7 +1,6 @@
 'use strict';
 
-//list of cars
-//useful for ALL exercises
+// list of cars useful for ALL exercises
 var carsJSON = [{
   'id': 'p306',
   'vehicule': 'peugeot 306',
@@ -17,11 +16,10 @@ var carsJSON = [{
   'pricePerKm': 0.45
 }];
 
-//list of rentals
-//useful for ALL exercises
-//The `price` is updated from exercice 1
-//The `commission` is updated from exercice 3
-//The `options` is useful from exercice 4
+/* list of rentals useful for ALL exercises
+The `price` is updated from exercice 1
+The `commission` is updated from exercice 3
+The `options` is useful from exercice 4   */
 var rentalsJSON = [{
   'id': '1-pb-92',
   'driver': {
@@ -81,9 +79,8 @@ var rentalsJSON = [{
   }
 }];
 
-//list of actors for payment
-//useful from exercise 5
-var actors = [{
+// list of actors for payment useful from exercise 5
+var actorsJSON = [{
   'rentalId': '1-pb-92',
   'payment': [{
     'who': 'driver',
@@ -172,6 +169,7 @@ var Car = function(id, vehicule, pricePerDay, pricePerKm){
   this.pricePerDay = pricePerDay;
   this.pricePerKm = pricePerKm;
 }
+Car.prototype.getId = function(){ return this.id; };
 Car.prototype.calculateRentalPrice = function(day,distanceInKm){
   var price = this.calculateTimeCost(day)+this.calculateDistanceCost(distanceInKm);
   return price;
@@ -191,18 +189,17 @@ Car.prototype.calculateDistanceCost = function(distanceInKm){
 };
 
 var CarRepository = function(){
-  this.cars = this.loadDataInJSON(carsJSON);
+  this.cars = [];
+  this.loadDataInJSON(carsJSON);
 };
 CarRepository.prototype.loadDataInJSON = function(data){
-  var cars = [];
   for(var i = 0; i < data.length; i++){
-    cars.push(new Car(data[i].id, data[i].vehicule, data[i].pricePerDay, data[i].pricePerKm));
+    this.cars.push(new Car(data[i].id, data[i].vehicule, data[i].pricePerDay, data[i].pricePerKm));
   }
-  return cars;
 };
 CarRepository.prototype.findCarById = function(id){
   for(var i = 0; i < this.cars.length; i++){
-    if(this.cars[i].id == id){
+    if(this.cars[i].getId() == id){
       return this.cars[i];
     }
   }
@@ -222,12 +219,18 @@ var Commission = function(){
 Commission.RATE = 0.3;
 Commission.INSURANCE_RATE = 0.5;
 Commission.ROADSIDE_COST_PER_DAY = 1;
+Commission.prototype.getInsurance = function(){ return this.insurance; };
+Commission.prototype.getAssistance = function(){ return this.assistance; };
+Commission.prototype.getDrivy = function(){ return this.drivy; };
 Commission.prototype.calculateCommision = function(price, day){
   var commisionPrice = price*Commission.RATE;
   this.insurance = commisionPrice*Commission.INSURANCE_RATE;
   this.assistance = day*Commission.ROADSIDE_COST_PER_DAY;
   this.drivy = commisionPrice - this.insurance - this.assistance;
 }
+Commission.prototype.getTotalCommision = function(){
+  return this.insurance + this.assistance + this.drivy;
+};
 /* ======================= RENTAL =============================== */
 var Rental = function(id, driver, carId, pickupDate, returnDate, distance, options, commission){
   this.id = id;
@@ -243,11 +246,13 @@ var Rental = function(id, driver, carId, pickupDate, returnDate, distance, optio
 Rental.DEDUCTIBLE_REDUCTION_PER_DAY = 4;
 Rental.DEDUCTIBLE_REDUCTION_WITHOUT = 800;
 Rental.DEDUCTIBLE_REDUCTION_WITH = 150;
+Rental.prototype.getId = function(){ return this.id; };
+Rental.prototype.getPrice = function(){ return this.price; };
+Rental.prototype.getCommision = function(){ return this.commission; };
 Rental.prototype.calculateRentalPrice = function(){
   var carRepository = new CarRepository();
   // TODO check exception for findCarById
   this.price = carRepository.findCarById(this.carId).calculateRentalPrice(this.calculateReservedTime(), this.distance);
-  this.price += this.checkDeductibleReductionOption();
 };
 Rental.prototype.calculateReservedTime = function(){
   const CONVERSION_TIME_RATE_MS_TO_DAY = 24*60*60*1000;
@@ -265,16 +270,15 @@ Rental.prototype.checkDeductibleReductionOption = function(){
 };
 
 var RentalRepository = function(){
-  this.rentals = this.loadDataInJSON(rentalsJSON);
+  this.rentals = [];
+  this.loadDataInJSON(rentalsJSON);
   this.calculateRentalPrice();
   this.calculateCommision();
 };
 RentalRepository.prototype.loadDataInJSON = function(data){
-  var rentals = [];
   for(var i = 0; i < data.length; i++){
-    rentals.push(new Rental(data[i].id, new Driver(data[i].driver.firstName, data[i].driver.lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].options, new Commission()));
+    this.rentals.push(new Rental(data[i].id, new Driver(data[i].driver.firstName, data[i].driver.lastName), data[i].carId, new Date(data[i].pickupDate), new Date(data[i].returnDate), data[i].distance, data[i].options, new Commission()));
   }
-  return rentals;
 };
 RentalRepository.prototype.calculateRentalPrice = function(){
   for(var i = 0; i < this.rentals.length; i++){
@@ -286,8 +290,70 @@ RentalRepository.prototype.calculateCommision = function(){
     this.rentals[i].calculateCommision();
   }
 };
+RentalRepository.prototype.findRentalById = function(id){
+  for(var i = 0; i < this.rentals.length; i++){
+    if(this.rentals[i].getId() == id){
+      return this.rentals[i];
+    }
+  }
+  console.log("Unable to find this rental ("+id+")");
+};
+
+/* ======================= ACTOR ================================ */
+var Actor = function(rentalId, payments){
+  this.rentalId = rentalId;
+  this.payments = payments;
+};
+Actor.prototype.pay = function(){
+  var rentalRepository = new RentalRepository();
+  // TODO check exception for findRentalById
+  var rental = rentalRepository.findRentalById(this.rentalId);
+  var commission = rental.getCommision();
+  // NOTE TDA
+  for(var i = 0; i < this.payments.length; i++){
+    switch(this.payments[i].getWho()){
+      case "driver":     this.payments[i].pay(rental.getPrice()+rental.checkDeductibleReductionOption());     break;
+      case "owner":      this.payments[i].pay(rental.getPrice()-commission.getTotalCommision());              break;
+      case "insurance":  this.payments[i].pay(commission.getInsurance());                                     break;
+      case "assistance": this.payments[i].pay(commission.getAssistance());                                    break;
+      case "drivy":      this.payments[i].pay(commission.getDrivy()+rental.checkDeductibleReductionOption()); break;
+    }
+  }
+};
+
+var ActorRepository = function(){
+  this.actors = [];
+  this.loadDataInJSON(actorsJSON);
+  this.pay();
+};
+ActorRepository.prototype.loadDataInJSON = function(data){
+  for(var i = 0; i < data.length; i++){
+    var payments = [];
+    for(var j = 0; j < data[i].payment.length; j++){
+      payments.push(new Payment(data[i].payment[j].who, data[i].payment[j].type));
+    }
+    this.actors.push(new Actor(data[i].rentalId, payments));
+  }
+};
+ActorRepository.prototype.pay = function(){
+  for(var i = 0; i < this.actors.length; i++){
+    this.actors[i].pay();
+  }  
+};
+/* ======================= PAYMENT ============================== */
+var Payment = function(who, type){
+  this.who = who;
+  this.type = type;
+  this.amount = 0;
+}
+Payment.prototype.getWho = function(){ return this.who; };
+Payment.prototype.pay = function(amount){
+  this.amount += amount;
+}
 
 // MAIN
 var carRepository = new CarRepository();
 var rentalRepository = new RentalRepository();
+var actorRepository = new ActorRepository();
 console.log(rentalRepository);
+console.log(actorRepository);
