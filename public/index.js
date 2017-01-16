@@ -151,8 +151,7 @@ var actorsJSON = [{
   }]
 }];
 
-//list of rental modifcation
-//useful for exercise 6
+// list of rental modifcation useful for exercise 6
 var rentalModifications = [{
   'rentalId': '1-pb-92',
   'returnDate': '2016-01-04',
@@ -170,7 +169,7 @@ var Car = function(id, vehicule, pricePerDay, pricePerKm){
   this.pricePerKm = pricePerKm;
 }
 Car.prototype.getId = function(){ return this.id; };
-Car.prototype.calculateRentalPrice = function(day,distanceInKm){
+Car.prototype.calculateRentalPrice = function(day, distanceInKm){
   var price = this.calculateTimeCost(day)+this.calculateDistanceCost(distanceInKm);
   return price;
 };
@@ -203,13 +202,19 @@ CarRepository.prototype.findCarById = function(id){
       return this.cars[i];
     }
   }
-  console.log("Unable to find this car ("+id+")");
-}
+  throw new UndefinedCarException(id);
+};
+
+var UndefinedCarException = function(message){
+  this.NAME = "UndefinedCarException";
+  this.MESSAGE = "Car undefined (" + message + ")"; 
+};
+
 /* ======================= DRIVER =============================== */
 var Driver = function(firstName, lastName){
   this.firstName = firstName;
   this.LastName = lastName;
-}
+};
 
 /* ======================= COMMISSION ============================ */
 var Commission = function(){
@@ -217,6 +222,7 @@ var Commission = function(){
   this.assistance = 0;
   this.drivy = 0;
 };
+
 Commission.RATE = 0.3;
 Commission.INSURANCE_RATE = 0.5;
 Commission.ROADSIDE_COST_PER_DAY = 1;
@@ -232,6 +238,7 @@ Commission.prototype.calculateCommision = function(price, day){
 Commission.prototype.getTotalCommision = function(){
   return this.insurance + this.assistance + this.drivy;
 };
+
 /* ======================= RENTAL =============================== */
 var Rental = function(id, driver, carId, pickupDate, returnDate, distance, options, commission){
   this.id = id;
@@ -255,8 +262,12 @@ Rental.prototype.getPrice = function(){ return this.price; };
 Rental.prototype.getCommission = function(){ return this.commission; };
 Rental.prototype.calculateRentalPrice = function(){
   var carRepository = new CarRepository();
-  // TODO check exception for findCarById
-  this.price = carRepository.findCarById(this.carId).calculateRentalPrice(this.calculateReservedTime(), this.distance);
+  try{
+    // ?=> UndefinedCarException
+    this.price = carRepository.findCarById(this.carId).calculateRentalPrice(this.calculateReservedTime(), this.distance);
+  }catch(error){
+    console.log(error.MESSAGE);
+  }
 };
 Rental.prototype.calculateReservedTime = function(){
   const CONVERSION_TIME_RATE_MS_TO_DAY = 24*60*60*1000;
@@ -307,7 +318,7 @@ RentalRepository.prototype.findRentalById = function(id){
       return this.rentals[i];
     }
   }
-  console.log("Unable to find this rental ("+id+")");
+  throw new UndefinedRentalException(id);
 };
 RentalRepository.prototype.findRentalIndexById = function(id){
   for(var i = 0; i < this.rentals.length; i++){
@@ -315,16 +326,24 @@ RentalRepository.prototype.findRentalIndexById = function(id){
       return i;
     }
   }
-  console.log("Unable to find this rental ("+id+")");
+  throw new UndefinedRentalException(id);
 };
 RentalRepository.prototype.modifyRental = function(id, pickupDate, returnDate, distance){
-  // TODO check exception for findRentalIndexById
-  var index = this.findRentalIndexById(id);
-  // NOTE we consider pickupDate <= returnDate
-  pickupDate = (typeof pickupDate === 'undefined' || pickupDate === null) ? this.rentals[index].getPickupDate() : new Date(pickupDate);
-  returnDate = (typeof returnDate === 'undefined' || returnDate === null) ? this.rentals[index].getReturnDate() : new Date(returnDate);
-  distance = (typeof distance === 'undefined' || distance === null || distance <= 0) ? this.rentals[index].getDistance() : distance;
-  this.rentals[index].modifyRental(pickupDate, returnDate, distance);
+  try{
+    var index = this.findRentalIndexById(id); // ?=> UndefinedRentalException
+    // NOTE we consider pickupDate <= returnDate
+    pickupDate = (typeof pickupDate === 'undefined' || pickupDate === null) ? this.rentals[index].getPickupDate() : new Date(pickupDate);
+    returnDate = (typeof returnDate === 'undefined' || returnDate === null) ? this.rentals[index].getReturnDate() : new Date(returnDate);
+    distance = (typeof distance === 'undefined' || distance === null || distance <= 0) ? this.rentals[index].getDistance() : distance;
+    this.rentals[index].modifyRental(pickupDate, returnDate, distance);
+  }catch(error){
+    console.log(error.MESSAGE);
+  }
+};
+
+var UndefinedRentalException = function(message){
+  this.NAME = "UndefinedRentalException";
+  this.MESSAGE = "Rental undefined (" + message + ")"; 
 };
 
 /* ======================= ACTOR ================================ */
@@ -339,32 +358,40 @@ Actor.ASSISTANCE = "assistance";
 Actor.DRIVY = "drivy";
 Actor.prototype.getRentalId = function(){ return this.rentalId; };
 Actor.prototype.pay = function(rentalRepository){
-  // TODO check exception for findRentalById
-  var rental = rentalRepository.findRentalById(this.rentalId);
-  var commission = rental.getCommission();
-  // NOTE TDA
-  for(var i = 0; i < this.payments.length; i++){
-    switch(this.payments[i].getWho()){
-      case Actor.DRIVER:     this.payments[i].pay(this.driverPayment(rental));     break;
-      case Actor.OWNER:      this.payments[i].pay(this.ownerPayment(rental));      break;
-      case Actor.INSURANCE:  this.payments[i].pay(this.insurancePayment(rental));  break;
-      case Actor.ASSISTANCE: this.payments[i].pay(this.assistancePayment(rental)); break;
-      case Actor.DRIVY:      this.payments[i].pay(this.drivyPayment(rental));      break;
+  try{
+    var rental = rentalRepository.findRentalById(this.rentalId); // ?=> UndefinedRentalException
+    var commission = rental.getCommission();
+    
+    for(var i = 0; i < this.payments.length; i++){
+      switch(this.payments[i].getWho()){
+        case Actor.DRIVER:     this.payments[i].pay(this.driverPayment(rental));     break;
+        case Actor.OWNER:      this.payments[i].pay(this.ownerPayment(rental));      break;
+        case Actor.INSURANCE:  this.payments[i].pay(this.insurancePayment(rental));  break;
+        case Actor.ASSISTANCE: this.payments[i].pay(this.assistancePayment(rental)); break;
+        case Actor.DRIVY:      this.payments[i].pay(this.drivyPayment(rental));      break;
+      }
     }
+  }catch(error){
+    console.log(error.MESSAGE);
   }
 };
 Actor.prototype.modify = function(rentalRepository){
-  var rental = rentalRepository.findRentalById(this.rentalId);
-  for(var i = 0; i < this.payments.length; i++){
-    var amount = 0;
-    switch(this.payments[i].getWho()){
-      case Actor.DRIVER:     amount = this.driverPayment(rental);     break;
-      case Actor.OWNER:      amount = this.ownerPayment(rental);      break;
-      case Actor.INSURANCE:  amount = this.insurancePayment(rental);  break;
-      case Actor.ASSISTANCE: amount = this.assistancePayment(rental); break;
-      case Actor.DRIVY:      amount = this.drivyPayment(rental);      break;
+  try{
+    var rental = rentalRepository.findRentalById(this.rentalId); // ?=> UndefinedRentalException
+
+    for(var i = 0; i < this.payments.length; i++){
+      var amount = 0;
+      switch(this.payments[i].getWho()){
+        case Actor.DRIVER:     amount = this.driverPayment(rental);     break;
+        case Actor.OWNER:      amount = this.ownerPayment(rental);      break;
+        case Actor.INSURANCE:  amount = this.insurancePayment(rental);  break;
+        case Actor.ASSISTANCE: amount = this.assistancePayment(rental); break;
+        case Actor.DRIVY:      amount = this.drivyPayment(rental);      break;
+      }
+      this.payments[i].deltaAmount = amount - this.payments[i].amount;
     }
-    this.payments[i].deltaAmount = amount - this.payments[i].amount;
+  }catch(error){
+    console.log(error.MESSAGE);
   }
 };
 Actor.prototype.driverPayment = function(rental){
@@ -409,12 +436,16 @@ ActorRepository.prototype.findActorIndexByRentalId = function(id){
       return i;
     }
   }
-  console.log("Unable to find this rental ("+id+"");
+  throw new UndefinedRentalException(id);
 };
 ActorRepository.prototype.modifyActor = function(id){
-  // TODO check exception for findActorIndexByRentalId
-  var index = this.findActorIndexByRentalId(id);
-  this.actors[index].modify(this.rentalRepository);
+  try{
+    var index = this.findActorIndexByRentalId(id);   // ?=> UndefinedRentalException
+    this.actors[index].modify(this.rentalRepository);
+  }catch(error){
+    console.log(error.MESSAGE);
+  }
+  
 };
 ActorRepository.prototype.doRentalModification = function(data){
   for(var i = 0; i < data.length; i++){
@@ -422,7 +453,6 @@ ActorRepository.prototype.doRentalModification = function(data){
     this.modifyActor(data[i].rentalId);
   }
 };
-
 /* ======================= PAYMENT ============================== */
 var Payment = function(who, type){
   this.who = who;
@@ -435,7 +465,7 @@ Payment.prototype.pay = function(amount){
   this.amount += amount;
 };
 
-// MAIN
+/* ======================= MAIN ================================= */
 var actorRepository = new ActorRepository();
 actorRepository.doRentalModification(rentalModifications);
 console.log(actorRepository);
